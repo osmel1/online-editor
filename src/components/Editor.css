@@ -15,8 +15,62 @@
     line-height: 1.5;
     tab-size: 2;
   }
-  
+  div[role="toolbar"] {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+  }
+  ._toolbarGroupOfGroups_uazmk_217 , ._toolbarToggleSingleGroup_uazmk_222 {
+    display: flex !important;
+    flex-direction: row !important;
+  }
   .editor textarea:focus {
     outline: none;
   }
+  .mdxeditor{
+    height: 50vh;
+  }
+  .mdxeditor-diff-source-wrapper{
+    display: flex;
+    height: 50vh;
+    overflow-y: scroll;
+  }
+
+  .dark-editor {
+    flex: 1;
+    border-right: 1px solid #ddd;
+    background: #1e1e1e;
+    color: #fff;
+  }
   
+  .dark-editor textarea {
+    width: 100%;
+    height: 100%;
+    padding: 8px;
+    font-family: 'Source Code Pro', Consolas, Monaco, 'Andale Mono', monospace;
+    font-size: 14px;
+    border: none;
+    resize: none;
+    box-sizing: border-box;
+    line-height: 1.5;
+    tab-size: 2;
+    background: #1e1e1e;
+    color: #fff;
+  }
+  .file-name{
+    font-size: 1.5rem;
+    font-weight: 600;
+    padding: 0.2rem;
+    border: 1px solid #ddd;
+    background: #f9f9f9;
+    color: #1e1e1e;
+    border-radius:  0 10px  10px 0 ;
+    width: 30%;
+    display: flex;
+    align-items: center;
+  }
+  .file-name .file-icon{
+    color: #1e1e1e;
+    display: flex;
+    text-align: center;
+  } 

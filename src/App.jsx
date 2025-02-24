@@ -6,6 +6,7 @@ import "@xterm/xterm/css/xterm.css";
 import { files } from "./files";
 import FileExplorer from "./components/FileExplorer";
 import Editor from "./components/Editor";
+import DefaultEditor from "./components/DefaultEditor";
 import Preview from "./components/Preview";
 import "./App.css";
 
@@ -31,6 +32,10 @@ function App() {
         const entries = await webcontainerInstance.fs.readdir(path, {
           withFileTypes: true,
         });
+        // // read a file
+        // console.log(
+        //   await webcontainerInstance.fs.readFile("/index.js", "utf-8")
+        // );
         const result = {};
 
         for (const entry of entries) {
@@ -83,14 +88,147 @@ function App() {
       console.error("Error refreshing file tree:", error);
     }
   }, [webcontainerInstance, readDirectory]);
+
   // Boot WebContainer
   useEffect(() => {
     if (webcontainerInstance) return;
+
     async function bootWebContainer() {
       try {
         const instance = await WebContainer.boot();
         setWebcontainerInstance(instance);
         await instance.mount(files);
+
+        // Create terminal instance early
+        const terminal = new Terminal({
+          convertEol: true,
+        });
+
+        if (terminalRef.current) {
+          console.log("Terminal created");
+          terminal.loadAddon(fitAddon.current);
+          terminal.open(terminalRef.current);
+          fitAddon.current.fit();
+          terminalInstance.current = terminal;
+          terminal.write("Creating new Docusaurus project...\r\n");
+          let process = await instance.spawn("npx", [
+            "--yes",  // Skip npx's own installation prompt
+            "create-docusaurus@latest",
+            "my-docs2",
+            "classic",
+            "--skip-install",
+            "-j"
+          ]);
+
+          // Handle process output correctly
+          process.output
+            .pipeTo(
+              new WritableStream({
+                write(data) {
+                  console.log("Data", data);
+                  terminal.write(data);
+                },
+              })
+            )
+            .catch(console.error);
+
+          // Handle process errors
+          process.stderr
+            .pipeTo(
+              new WritableStream({
+                write(data) {
+                  console.log("Data", data);
+                  terminal.write(`\x1b[31m${data}\x1b[0m`); // Write errors in red
+                },
+              })
+            )
+            .catch(console.error);
+
+          // Wait for command to complete
+          try {
+            const exitCode = await process.exit;
+
+            if (exitCode === 0) {
+              terminal.write(
+                "\r\nDocusaurus project created successfully!\r\n"
+              );
+
+              terminal.write("\r\nChanging to project directory...\r\n");
+              process = await instance.spawn("cd", ["my-docs2"]);
+              await process.exit;
+
+              console.log("Changing to project directory");
+              console.log("Installing dependencies");
+              terminal.write("\r\nInstalling dependencies (this may take a while)...\r\n");
+              process = await instance.spawn("npm", ["install"], {
+                cwd: "/my-docs2"
+              });
+              
+              // Handle npm install output
+              process.output
+                .pipeTo(
+                  new WritableStream({
+                    write(data) {
+                      console.log("Data from npm install", data);
+                      terminal.write(data);
+                    },
+                  })
+                )
+                .catch(console.error);
+              
+              process.stderr
+                .pipeTo(
+                  new WritableStream({
+                    write(data) {
+                      terminal.write(`\x1b[31m${data}\x1b[0m`);
+                    },
+                  })
+                )
+                .catch(console.error);
+              
+              await process.exit;
+
+              terminal.write("\r\nDependencies installed successfully!\r\n");
+              
+              // Step 4: Start the development server
+              terminal.write("\r\nStarting development server...\r\n");
+              process = await instance.spawn("npm", ["start"], {
+                cwd: "/my-docs2"
+              });
+
+              process.output
+                .pipeTo(
+                  new WritableStream({
+                    write(data) {
+                      console.log("Data from npm start", data);
+                      terminal.write(data);
+                    },
+                  })
+                )
+                .catch(console.error);
+              
+              process.stderr
+                .pipeTo(
+                  new WritableStream({
+                    write(data) {
+                      terminal.write(`\x1b[31m${data}\x1b[0m`);
+                    },
+                  })
+                )
+                .catch(console.error);
+
+                const exitCodeRes = await process.exit;
+              
+            } else {
+              terminal.write("\r\nError creating Docusaurus project\r\n");
+            }
+          } catch (error) {
+            terminal.write(`\r\nError: ${error.message}\r\n`);
+          }
+
+          // Start the interactive shell
+          await startShell(terminal);
+        }
 
         // Setup server ready listener
         instance.on("server-ready", (port, url) => {
@@ -103,12 +241,15 @@ function App() {
         }
       } catch (error) {
         console.error("Failed to boot WebContainer:", error);
+        if (terminalInstance.current) {
+          terminalInstance.current.write(`\r\nError: ${error.message}\r\n`);
+        }
       }
     }
 
     bootWebContainer();
     return () => {
-      webcontainerInstance?.teardown(); // Cleanup memory when component unmounts
+      webcontainerInstance?.teardown();
     };
   }, []);
   const startShell = useCallback(
@@ -242,7 +383,6 @@ function App() {
     }, 1000); // Wait 1s after the last keystroke before saving
   }
 
-  // Toggle folder open/closed state
   function toggleFolder(path) {
     setOpenFolders((prevOpenFolders) => {
       const newOpenFolders = new Set(prevOpenFolders);
@@ -253,6 +393,41 @@ function App() {
       }
       return newOpenFolders;
     });
+  }
+  function checkIfMArkDownFile() {
+    if (
+      currentFile.endsWith(".md") ||
+      currentFile.endsWith(".mdx") ||
+      currentFile.endsWith(".markdown")
+    ) {
+      return true;
+    }
+    return false;
+  }
+  function renderEditorBasedOnFileType() {
+    const isMdFile = checkIfMArkDownFile();
+    if (isMdFile) {
+      return (
+        <Editor
+          value={fileContent}
+          onChange={(newContent) => {
+            setFileContent(newContent);
+            saveFileChanges(newContent);
+          }}
+        />
+      );
+    } else {
+      return (
+        <DefaultEditor
+          fileName={currentFile}
+          value={fileContent}
+          onChange={(newContent) => {
+            setFileContent(newContent);
+            saveFileChanges(newContent);
+          }}
+        />
+      );
+    }
   }
 
   return (
@@ -265,13 +440,8 @@ function App() {
           onSelectFile={loadFile}
           currentFile={currentFile}
         />
-        <Editor
-          value={fileContent}
-          onChange={(newContent) => {
-            setFileContent(newContent); // Update state immediately for UI feedback
-            saveFileChanges(newContent); // Debounced save
-          }}
-        />
+
+        {renderEditorBasedOnFileType()}
         <Preview url={iframeUrl} />
       </div>
       <div className="terminal-container" ref={terminalRef}></div>
