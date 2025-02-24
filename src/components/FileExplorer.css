@@ -4,8 +4,11 @@
     flex-direction: column;
     border-right: 1px solid #ddd;
     background-color: #f5f5f5;
+    transition: width 0.2s ease;
   }
-  
+  .file-explorer.collapsed{
+    width: 0px;
+  }
   .file-explorer-header {
     padding: 8px 12px;
     font-weight: bold;

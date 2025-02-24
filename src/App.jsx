@@ -18,35 +18,35 @@ function App() {
   const [openFolders, setOpenFolders] = useState(new Set());
   const [iframeUrl, setIframeUrl] = useState("loading.html");
   const saveTimeout = useRef(null);
+  const serverStarted = useRef(false);
 
   const terminalRef = useRef(null);
   const terminalInstance = useRef(null);
   const shellProcess = useRef(null);
   const fitAddon = useRef(new FitAddon());
 
+  // create a file
+
+  // Only show docs directory in file explorer
   const readDirectory = useCallback(
-    async (path = "/") => {
+    async (path = "/my-docs2/docs/") => {
       if (!webcontainerInstance) return {};
 
       try {
         const entries = await webcontainerInstance.fs.readdir(path, {
           withFileTypes: true,
         });
-        // // read a file
-        // console.log(
-        //   await webcontainerInstance.fs.readFile("/index.js", "utf-8")
-        // );
+
         const result = {};
 
         for (const entry of entries) {
           if (entry.name.startsWith(".")) continue; // Skip hidden files
 
-          const fullPath =
-            path === "/" ? `/${entry.name}` : `${path}/${entry.name}`;
+          const fullPath = `${path}${entry.name}`;
 
           if (entry.isDirectory()) {
             result[entry.name] = {
-              directory: await readDirectory(fullPath),
+              directory: await readDirectory(`${fullPath}/`),
               path: fullPath,
             };
           } else {
@@ -82,7 +82,7 @@ function App() {
     if (!webcontainerInstance) return;
 
     try {
-      const newFileSystem = await readDirectory("/");
+      const newFileSystem = await readDirectory("/my-docs2/docs/");
       setFileSystem(newFileSystem);
     } catch (error) {
       console.error("Error refreshing file tree:", error);
@@ -97,7 +97,6 @@ function App() {
       try {
         const instance = await WebContainer.boot();
         setWebcontainerInstance(instance);
-        await instance.mount(files);
 
         // Create terminal instance early
         const terminal = new Terminal({
@@ -112,12 +111,12 @@ function App() {
           terminalInstance.current = terminal;
           terminal.write("Creating new Docusaurus project...\r\n");
           let process = await instance.spawn("npx", [
-            "--yes",  // Skip npx's own installation prompt
+            "--yes", // Skip npx's own installation prompt
             "create-docusaurus@latest",
             "my-docs2",
             "classic",
             "--skip-install",
-            "-j"
+            "-j",
           ]);
 
           // Handle process output correctly
@@ -159,11 +158,13 @@ function App() {
 
               console.log("Changing to project directory");
               console.log("Installing dependencies");
-              terminal.write("\r\nInstalling dependencies (this may take a while)...\r\n");
+              terminal.write(
+                "\r\nInstalling dependencies (this may take a while)...\r\n"
+              );
               process = await instance.spawn("npm", ["install"], {
-                cwd: "/my-docs2"
+                cwd: "/my-docs2",
               });
-              
+
               // Handle npm install output
               process.output
                 .pipeTo(
@@ -175,7 +176,7 @@ function App() {
                   })
                 )
                 .catch(console.error);
-              
+
               process.stderr
                 .pipeTo(
                   new WritableStream({
@@ -185,15 +186,23 @@ function App() {
                   })
                 )
                 .catch(console.error);
-              
+
               await process.exit;
 
               terminal.write("\r\nDependencies installed successfully!\r\n");
-              
+
+              // Setup server ready listener BEFORE starting the server
+              instance.on("server-ready", (port, url) => {
+                console.log(`Server ready at port: ${port}, url: ${url}`);
+                setIframeUrl(url);
+                serverStarted.current = true;
+                terminal.write(`\r\nServer started successfully at ${url}\r\n`);
+              });
+
               // Step 4: Start the development server
               terminal.write("\r\nStarting development server...\r\n");
               process = await instance.spawn("npm", ["start"], {
-                cwd: "/my-docs2"
+                cwd: "/my-docs2",
               });
 
               process.output
@@ -202,11 +211,29 @@ function App() {
                     write(data) {
                       console.log("Data from npm start", data);
                       terminal.write(data);
+
+                      // Check if server started from output
+                      if (
+                        data.includes("Docusaurus website is running at") &&
+                        !serverStarted.current
+                      ) {
+                        const match = data.match(/http:\/\/localhost:(\d+)/);
+                        if (match && match[0]) {
+                          setIframeUrl(match[0]);
+                          serverStarted.current = true;
+                          console.log(
+                            `Detected server URL from output: ${match[0]}`
+                          );
+
+                          // Now that the server is running, refresh the file tree to show the docs directory
+                          refreshFileTree();
+                        }
+                      }
                     },
                   })
                 )
                 .catch(console.error);
-              
+
               process.stderr
                 .pipeTo(
                   new WritableStream({
@@ -216,9 +243,6 @@ function App() {
                   })
                 )
                 .catch(console.error);
-
-                const exitCodeRes = await process.exit;
-              
             } else {
               terminal.write("\r\nError creating Docusaurus project\r\n");
             }
@@ -227,18 +251,13 @@ function App() {
           }
 
           // Start the interactive shell
-          await startShell(terminal);
+          // await startShell(terminal);
         }
-
-        // Setup server ready listener
-        instance.on("server-ready", (port, url) => {
-          setIframeUrl(url);
-        });
 
         // Initial file content
-        if (files["index.js"]?.file?.contents) {
-          setFileContent(files["index.js"].file.contents);
-        }
+        // if (files["index.js"]?.file?.contents) {
+        //   setFileContent(files["index.js"].file.contents);
+        // }
       } catch (error) {
         console.error("Failed to boot WebContainer:", error);
         if (terminalInstance.current) {
@@ -251,7 +270,8 @@ function App() {
     return () => {
       webcontainerInstance?.teardown();
     };
-  }, []);
+  }, [refreshFileTree]);
+
   const startShell = useCallback(
     async (terminal) => {
       if (!webcontainerInstance) return;
@@ -262,6 +282,7 @@ function App() {
             cols: terminal.cols,
             rows: terminal.rows,
           },
+          cwd: "/my-docs2/docs/", // Start shell in the docs directory
         });
 
         if (shellProcess.current) {
@@ -307,6 +328,7 @@ function App() {
     },
     [webcontainerInstance, refreshFileTree]
   );
+
   // Setup terminal once webcontainer is ready
   useEffect(() => {
     if (!webcontainerInstance || !terminalRef.current) return;
@@ -320,7 +342,7 @@ function App() {
     fitAddon.current.fit();
     terminalInstance.current = terminal;
 
-    startShell(terminal);
+//    startShell(terminal);
 
     const handleResize = () => {
       fitAddon.current.fit();
@@ -340,48 +362,134 @@ function App() {
   useEffect(() => {
     if (!webcontainerInstance) return;
 
-    refreshFileTree();
+    // Initial file tree load
+    setTimeout(refreshFileTree, 1000);
 
-    // Set up polling for file system changes
-    webcontainerInstance.fs.watch("/", async () => {
-      await refreshFileTree();
-    });
+    // Set up watching only the docs directory for changes
+    const watchCleanup = webcontainerInstance.fs.watch(
+      "/my-docs2/docs/",
+      { recursive: true },
+      async () => {
+        await refreshFileTree();
+      }
+    );
+
+    return () => {
+      if (watchCleanup) watchCleanup();
+    };
   }, [webcontainerInstance, refreshFileTree]);
 
   async function loadFile(path) {
     if (!webcontainerInstance) return;
 
     try {
-      if (fileSystem[path]?.file?.contents) {
-        setFileContent(fileSystem[path].file.contents);
-      } else {
-        const content = await webcontainerInstance.fs.readFile(path, "utf-8");
-        setFileContent(content);
-      }
+      const content = await webcontainerInstance.fs.readFile(path, "utf-8");
+      setFileContent(content);
       setCurrentFile(path);
     } catch (error) {
       console.error(`Error loading file ${path}:`, error);
     }
   }
 
-  // Save file changes
-  async function saveFileChanges(content) {
-    if (!webcontainerInstance || !currentFile) return;
+  const saveFileChanges = useCallback(
+    async (newContent) => {
+      if (!webcontainerInstance || !currentFile) return;
 
-    // Clear previous timeout if the user is still typing
-    clearTimeout(saveTimeout.current);
-
-    // Set a new timeout to save only if no changes happen for 1 second
-    saveTimeout.current = setTimeout(async () => {
-      try {
-        await webcontainerInstance.fs.writeFile(currentFile, content);
-        setFileContent(content);
-        console.log("File saved successfully!");
-      } catch (error) {
-        console.error(`Error saving changes to ${currentFile}:`, error);
+      // Clear previous timeout if the user is still typing
+      if (saveTimeout.current) {
+        clearTimeout(saveTimeout.current);
       }
-    }, 1000); // Wait 1s after the last keystroke before saving
-  }
+
+      // Set a new timeout to save only if no changes happen for 500ms
+      saveTimeout.current = setTimeout(async () => {
+        try {
+          console.log(`Saving file ${currentFile}...`);
+          await webcontainerInstance.fs.writeFile(currentFile, newContent);
+          console.log("File saved successfully!");
+        } catch (error) {
+          console.error(`Error saving file ${currentFile}:`, error);
+        }
+      }, 500); // Delay before saving
+    },
+    [webcontainerInstance, currentFile]
+  );
+  const createFile = useCallback(
+    async (path = "/my-docs2/docs/") => {
+      if (!webcontainerInstance) return;
+
+      try {
+        const fileName = prompt("Enter file name:");
+        if (!fileName) return;
+
+        const basePath = "/my-docs2/docs/";
+        const filePath = `${basePath}${fileName}`;
+        console.log("Creating file:", filePath);
+        // Create the file with empty content
+        await webcontainerInstance.fs.writeFile(filePath, "");
+
+        // Refresh the file tree to show the new file
+        await refreshFileTree();
+
+        // Load the new file in the editor
+        await loadFile(filePath);
+
+        // Write a message to the terminal
+        if (terminalInstance.current) {
+          terminalInstance.current.write(`\r\nCreated file: ${filePath}\r\n`);
+        }
+      } catch (error) {
+        console.error("Error creating file:", error);
+        if (terminalInstance.current) {
+          terminalInstance.current.write(
+            `\r\nError creating file: ${error.message}\r\n`
+          );
+        }
+      }
+    },
+    [webcontainerInstance, refreshFileTree, loadFile]
+  );
+
+  const createFolder = useCallback(
+    async (path = "/my-docs2/docs/") => {
+      if (!webcontainerInstance) return;
+
+      try {
+        const folderName = prompt("Enter folder name:");
+        if (!folderName) return;
+        const basePath = "/my-docs2/docs/";
+        const filePath = `${basePath}${folderName}`;
+        console.log("Creating file:", filePath);
+
+        // Create the directory
+        await webcontainerInstance.fs.mkdir(filePath, { recursive: true });
+
+        // Refresh the file tree to show the new folder
+        await refreshFileTree();
+
+        // Open the new folder in the file explorer
+        setOpenFolders((prevOpenFolders) => {
+          const newOpenFolders = new Set(prevOpenFolders);
+          newOpenFolders.add(filePath);
+          return newOpenFolders;
+        });
+
+        // Write a message to the terminal
+        if (terminalInstance.current) {
+          terminalInstance.current.write(
+            `\r\nCreated folder: ${filePath}\r\n`
+          );
+        }
+      } catch (error) {
+        console.error("Error creating folder:", error);
+        if (terminalInstance.current) {
+          terminalInstance.current.write(
+            `\r\nError creating folder: ${error.message}\r\n`
+          );
+        }
+      }
+    },
+    [webcontainerInstance, refreshFileTree]
+  );
 
   function toggleFolder(path) {
     setOpenFolders((prevOpenFolders) => {
@@ -394,7 +502,8 @@ function App() {
       return newOpenFolders;
     });
   }
-  function checkIfMArkDownFile() {
+
+  function checkIfMDFile() {
     if (
       currentFile.endsWith(".md") ||
       currentFile.endsWith(".mdx") ||
@@ -404,8 +513,9 @@ function App() {
     }
     return false;
   }
+
   function renderEditorBasedOnFileType() {
-    const isMdFile = checkIfMArkDownFile();
+    const isMdFile = checkIfMDFile();
     if (isMdFile) {
       return (
         <Editor
@@ -432,13 +542,15 @@ function App() {
 
   return (
     <div className="app-container">
-      <div className="editor-container">
+      <div className="editor-container ">
         <FileExplorer
           fileSystem={fileSystem}
           openFolders={openFolders}
           onToggleFolder={toggleFolder}
           onSelectFile={loadFile}
           currentFile={currentFile}
+          onCreateFile={createFile}
+          onCreateFolder={createFolder}
         />
 
         {renderEditorBasedOnFileType()}

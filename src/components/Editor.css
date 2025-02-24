@@ -1,6 +1,7 @@
 .editor {
     flex: 1;
     border-right: 1px solid #ddd;
+    margin-left: 2rem;
   }
   
   .editor textarea {
@@ -28,7 +29,7 @@
     outline: none;
   }
   .mdxeditor{
-    height: 50vh;
+    height: 70vh;
   }
   .mdxeditor-diff-source-wrapper{
     display: flex;
