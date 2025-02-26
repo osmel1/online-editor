@@ -1,5 +1,4 @@
-// utils/functions.js
-
+// ./utils/functions
 /**
  * Creates a new Docusaurus project
  * @param {WebContainer} instance - WebContainer instance
