@@ -9,6 +9,8 @@ import Editor from "./components/Editor";
 import DefaultEditor from "./components/DefaultEditor";
 import Preview from "./components/Preview";
 import "./App.css";
+import LoadingScreen from "./components/LoadingScreen";
+import { setupDocusaurusProject } from "./utils/functions";
 
 function App() {
   const [webcontainerInstance, setWebcontainerInstance] = useState(null);
@@ -17,6 +19,7 @@ function App() {
   const [fileSystem, setFileSystem] = useState({});
   const [openFolders, setOpenFolders] = useState(new Set());
   const [iframeUrl, setIframeUrl] = useState("loading.html");
+  const bootAttempted = useRef(false);
   const saveTimeout = useRef(null);
   const serverStarted = useRef(false);
 
@@ -26,8 +29,10 @@ function App() {
   const fitAddon = useRef(new FitAddon());
 
   // create a file
-
-  // Only show docs directory in file explorer
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingStage, setLoadingStage] = useState("Initializing WebContainer...");
+  const [setupProgress, setSetupProgress] = useState(0);
+ 
   const readDirectory = useCallback(
     async (path = "/my-docs2/docs/") => {
       if (!webcontainerInstance) return {};
@@ -82,10 +87,16 @@ function App() {
     if (!webcontainerInstance) return;
 
     try {
+      // Check if the folder exists
+      await webcontainerInstance.fs.readdir("/my-docs2/docs/");
+  
+      // If the folder exists, read its contents
       const newFileSystem = await readDirectory("/my-docs2/docs/");
       setFileSystem(newFileSystem);
     } catch (error) {
-      console.error("Error refreshing file tree:", error);
+      if (error) {
+        console.warn("Folder does not exist yet:", "/my-docs2/docs/");
+      }
     }
   }, [webcontainerInstance, readDirectory]);
 
@@ -94,9 +105,16 @@ function App() {
     if (webcontainerInstance) return;
 
     async function bootWebContainer() {
+      if (bootAttempted.current) return;
+      bootAttempted.current = true;
+
       try {
+        setLoadingStage("Initializing WebContainer...");
+        setSetupProgress(5);
+
         const instance = await WebContainer.boot();
         setWebcontainerInstance(instance);
+        setSetupProgress(10);
 
         // Create terminal instance early
         const terminal = new Terminal({
@@ -109,240 +127,51 @@ function App() {
           terminal.open(terminalRef.current);
           fitAddon.current.fit();
           terminalInstance.current = terminal;
-          terminal.write("Creating new Docusaurus project...\r\n");
-          let process = await instance.spawn("npx", [
-            "--yes", // Skip npx's own installation prompt
-            "create-docusaurus@latest",
-            "my-docs2",
-            "classic",
-            "--skip-install",
-            "-j",
-          ]);
-
-          // Handle process output correctly
-          process.output
-            .pipeTo(
-              new WritableStream({
-                write(data) {
-                  console.log("Data", data);
-                  terminal.write(data);
-                },
-              })
-            )
-            .catch(console.error);
-
-          // Handle process errors
-          process.stderr
-            .pipeTo(
-              new WritableStream({
-                write(data) {
-                  console.log("Data", data);
-                  terminal.write(`\x1b[31m${data}\x1b[0m`); // Write errors in red
-                },
-              })
-            )
-            .catch(console.error);
-
-          // Wait for command to complete
-          try {
-            const exitCode = await process.exit;
-
-            if (exitCode === 0) {
-              terminal.write(
-                "\r\nDocusaurus project created successfully!\r\n"
-              );
-
-              terminal.write("\r\nChanging to project directory...\r\n");
-              process = await instance.spawn("cd", ["my-docs2"]);
-              await process.exit;
-
-              console.log("Changing to project directory");
-              console.log("Installing dependencies");
-              terminal.write(
-                "\r\nInstalling dependencies (this may take a while)...\r\n"
-              );
-              process = await instance.spawn("npm", ["install"], {
-                cwd: "/my-docs2",
-              });
-
-              // Handle npm install output
-              process.output
-                .pipeTo(
-                  new WritableStream({
-                    write(data) {
-                      console.log("Data from npm install", data);
-                      terminal.write(data);
-                    },
-                  })
-                )
-                .catch(console.error);
-
-              process.stderr
-                .pipeTo(
-                  new WritableStream({
-                    write(data) {
-                      terminal.write(`\x1b[31m${data}\x1b[0m`);
-                    },
-                  })
-                )
-                .catch(console.error);
-
-              await process.exit;
-
-              terminal.write("\r\nDependencies installed successfully!\r\n");
-
-              // Setup server ready listener BEFORE starting the server
-              instance.on("server-ready", (port, url) => {
-                console.log(`Server ready at port: ${port}, url: ${url}`);
-                setIframeUrl(url);
-                serverStarted.current = true;
-                terminal.write(`\r\nServer started successfully at ${url}\r\n`);
-              });
-
-              // Step 4: Start the development server
-              terminal.write("\r\nStarting development server...\r\n");
-              process = await instance.spawn("npm", ["start"], {
-                cwd: "/my-docs2",
-              });
-
-              process.output
-                .pipeTo(
-                  new WritableStream({
-                    write(data) {
-                      console.log("Data from npm start", data);
-                      terminal.write(data);
-
-                      // Check if server started from output
-                      if (
-                        data.includes("Docusaurus website is running at") &&
-                        !serverStarted.current
-                      ) {
-                        const match = data.match(/http:\/\/localhost:(\d+)/);
-                        if (match && match[0]) {
-                          setIframeUrl(match[0]);
-                          serverStarted.current = true;
-                          console.log(
-                            `Detected server URL from output: ${match[0]}`
-                          );
-
-                          // Now that the server is running, refresh the file tree to show the docs directory
-                          refreshFileTree();
-                        }
-                      }
-                    },
-                  })
-                )
-                .catch(console.error);
-
-              process.stderr
-                .pipeTo(
-                  new WritableStream({
-                    write(data) {
-                      terminal.write(`\x1b[31m${data}\x1b[0m`);
-                    },
-                  })
-                )
-                .catch(console.error);
-            } else {
-              terminal.write("\r\nError creating Docusaurus project\r\n");
-            }
-          } catch (error) {
-            terminal.write(`\r\nError: ${error.message}\r\n`);
-          }
-
-          // Start the interactive shell
-          // await startShell(terminal);
+          
+          // Use the extracted function to set up Docusaurus
+          await setupDocusaurusProject(
+            instance,
+            terminal,
+            setLoadingStage,
+            setSetupProgress,
+            setIframeUrl,
+            serverStarted,
+            refreshFileTree,
+            setIsLoading
+          );
         }
-
-        // Initial file content
-        // if (files["index.js"]?.file?.contents) {
-        //   setFileContent(files["index.js"].file.contents);
-        // }
       } catch (error) {
         console.error("Failed to boot WebContainer:", error);
+        // Reset boot flag to allow retry
+        bootAttempted.current = false;
         if (terminalInstance.current) {
           terminalInstance.current.write(`\r\nError: ${error.message}\r\n`);
         }
       }
     }
-
-    bootWebContainer();
+    
+    if (!webcontainerInstance && !bootAttempted.current) {
+      bootWebContainer();
+    }
+    
     return () => {
       webcontainerInstance?.teardown();
     };
   }, [refreshFileTree]);
 
-  const startShell = useCallback(
-    async (terminal) => {
-      if (!webcontainerInstance) return;
-
-      try {
-        const process = await webcontainerInstance.spawn("jsh", {
-          terminal: {
-            cols: terminal.cols,
-            rows: terminal.rows,
-          },
-          cwd: "/my-docs2/docs/", // Start shell in the docs directory
-        });
-
-        if (shellProcess.current) {
-          await shellProcess.current.kill();
-        }
-
-        shellProcess.current = process;
-
-        process.output.pipeTo(
-          new WritableStream({
-            write(data) {
-              terminal.write(data);
-
-              // Check for commands that modify the file system
-              if (
-                data.includes("mkdir") ||
-                data.includes("touch") ||
-                data.includes("npm") ||
-                data.includes("yarn") ||
-                data.includes("rm") ||
-                data.includes("cp") ||
-                data.includes("mv")
-              ) {
-                setTimeout(refreshFileTree, 500);
-              }
-            },
-          })
-        );
-
-        const input = process.input.getWriter();
-
-        terminal.onData((data) => {
-          input.write(data);
-
-          // Check for Enter key to potentially run a command
-          if (data === "\r") {
-            setTimeout(refreshFileTree, 1000);
-          }
-        });
-      } catch (error) {
-        console.error("Failed to start shell:", error);
-      }
-    },
-    [webcontainerInstance, refreshFileTree]
-  );
-
   // Setup terminal once webcontainer is ready
   useEffect(() => {
-    if (!webcontainerInstance || !terminalRef.current) return;
+    if (!webcontainerInstance || !terminalRef.current || terminalInstance.current) return;
 
     const terminal = new Terminal({
       convertEol: true,
     });
+    console.log("call Terminal creation");
 
     terminal.loadAddon(fitAddon.current);
     terminal.open(terminalRef.current);
     fitAddon.current.fit();
     terminalInstance.current = terminal;
-
-//    startShell(terminal);
 
     const handleResize = () => {
       fitAddon.current.fit();
@@ -356,9 +185,8 @@ function App() {
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [webcontainerInstance, startShell]);
+  }, [webcontainerInstance]);
 
-  // Refresh file system data when webcontainer is ready
   useEffect(() => {
     if (!webcontainerInstance) return;
 
@@ -413,6 +241,7 @@ function App() {
     },
     [webcontainerInstance, currentFile]
   );
+  
   const createFile = useCallback(
     async (path = "/my-docs2/docs/") => {
       if (!webcontainerInstance) return;
@@ -542,6 +371,9 @@ function App() {
 
   return (
     <div className="app-container">
+      {isLoading && (
+        <LoadingScreen stage={loadingStage} progress={setupProgress} />
+      )}
       <div className="editor-container ">
         <FileExplorer
           fileSystem={fileSystem}

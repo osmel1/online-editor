@@ -14,7 +14,9 @@ import {
   diffSourcePlugin,
   tablePlugin,
   DiffSourceToggleWrapper,
+  Select,
 } from "@mdxeditor/editor";
+
 
 function Editor({ value, onChange }) {
   const editorRef = useRef(null);

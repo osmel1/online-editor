@@ -36,16 +36,6 @@ function FileExplorer({
   const toggleVisibility = () => {
     setIsVisible((prev) => !prev);
   };
-  const createFile = () => {
-    const fileName = prompt("Enter file name");
-    if (!fileName) return;
-    onSelectFile(fileName);
-  };
-  const createFolder = () => {
-    const folderName = prompt("Enter folder name");
-    if (!folderName) return;
-    onSelectFile(folderName);
-  };
   const renderFileTree = (fs, pathPrefix = "") => {
     return Object.keys(fs).map((name) => {
       const fullPath = pathPrefix === "" ? `/${name}` : `${pathPrefix}/${name}`;
