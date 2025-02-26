@@ -14,7 +14,7 @@ import { setupDocusaurusProject } from "./utils/functions";
 
 function App() {
   const [webcontainerInstance, setWebcontainerInstance] = useState(null);
-  const [currentFile, setCurrentFile] = useState("index.js");
+  const [currentFile, setCurrentFile] = useState("");
   const [fileContent, setFileContent] = useState("");
   const [fileSystem, setFileSystem] = useState({});
   const [openFolders, setOpenFolders] = useState(new Set());
