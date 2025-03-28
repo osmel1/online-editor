@@ -1,0 +1,44 @@
+[33mcommit e91526a1572166b075492af2fe1335f7f3db10fd[m[33m ([m[1;36mHEAD -> [m[1;32mmaster[m[33m)[m
+Author: osmel1 <elhaoussama483@gmail.com>
+Date:   Fri Mar 28 12:02:54 2025 +0000
+
+    feat:start db integration
+
+[33mcommit 63f53c8b5206086e0cd131958e4fd359fe42baf9[m[33m ([m[1;32mremoveSecondTerminal[m[33m, [m[1;32mcleanCode[m[33m)[m
+Author: osmel1 <elhaoussama483@gmail.com>
+Date:   Wed Feb 26 14:55:51 2025 +0000
+
+    all good
+
+[33mcommit 45333ae82e71f02d2c839c1a39f477095a02fe48[m
+Author: osmel1 <elhaoussama483@gmail.com>
+Date:   Wed Feb 26 14:42:43 2025 +0000
+
+    make the code more cleaner
+
+[33mcommit f8d742e9e1d964e1a206788699dd40b603d6a5a7[m
+Author: osmel1 <elhaoussama483@gmail.com>
+Date:   Mon Feb 24 17:14:50 2025 +0000
+
+    it need just to remove the second terminal
+
+[33mcommit 956cc43f5e96ca295ecb7600d286f4022cccdc99[m
+Author: osmel1 <elhaoussama483@gmail.com>
+Date:   Mon Feb 24 14:55:13 2025 +0000
+
+    project initialization success .
+
+[33mcommit 9cc2ef585d180bd212db2b1ef28d978e71c8a0f0[m
+Author: osmel1 <elhaoussama483@gmail.com>
+Date:   Thu Feb 20 11:52:43 2025 +0100
+
+    I complete
+    online editor :
+     - use webcontainers for the preview and the file editor
+     - create a custom file tree explorer
+     - add the terminal component using xterm
+    I need to
+    - change the editor from the default editor(text area) to MdxEditor
+    - enhance the style of the appp
+    - the ability to create new file/folder
+    - initialize the project with a docausaurus project
