@@ -29,11 +29,11 @@
     outline: none;
   }
   .mdxeditor{
-    height: 70vh;
+    /* height: 70vh; */
   }
   .mdxeditor-diff-source-wrapper{
     display: flex;
-    height: 50vh;
+    /* border: 2px solid #ddd; */
     overflow-y: scroll;
   }
 
