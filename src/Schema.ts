@@ -10,4 +10,3 @@ export const fileSchema = {
     },
     required: ['path', 'content'],
 };
-

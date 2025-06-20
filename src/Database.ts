@@ -1,24 +1,7 @@
+import { FileSystemAPI } from "@webcontainer/api";
+import { RxDatabase } from "rxdb";
 
-async function initializeProject(fs) {
-    const  db = await getDatabase();
-    // 1️⃣ Check if the project already exists in RxDB
-    const existingFiles = await db.files.find().exec();
-    
-    if (existingFiles.length === 0) {
-        console.log("🚀 First-time setup: Initializing project...");
-
-        await setupDefaultProject(fs);
-
-        await saveToRxDB(fs);
-    } else {
-        console.log("🔄 Restoring project from RxDB...");
-        await restoreFromRxDB(fs);
-    }
-}
-
-
-
-export async function saveToRxDB(fs, db) {
+export async function saveToRxDB(fs:FileSystemAPI, db:RxDatabase) {
     console.log('📁 Saving files to RxDB...');
     // Read all files in the directory
     const files = await fs.readdir("/my-docs2/docs/" , {
@@ -62,7 +45,7 @@ export async function saveToRxDB(fs, db) {
     console.log('✅ Files saved to RxDB');
   }
   
-  async function processDirectoryFiles(fs, dirPath) {
+  async function processDirectoryFiles(fs:FileSystemAPI, dirPath:string):Promise<Array<{ path: string, content: string }>> {
     const contents = await fs.readdir(dirPath , {
         withFileTypes: true,
     });
@@ -90,8 +73,9 @@ export async function saveToRxDB(fs, db) {
     return fileOperations;
   }
 
-export async function restoreFromRxDB(fs,db) {
+export async function restoreFromRxDB(fs:FileSystemAPI,db:RxDatabase) {
     const allFiles = await db.files.find().exec();
+    console.log("Files restored  from RxDB:", allFiles);
     for (const file of allFiles) {
         await fs.writeFile(file.path, file.content, 'utf8');
     }

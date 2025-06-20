@@ -10,10 +10,7 @@ const handleProcessStream = (stream, terminal, callback = null, isError = false)
   return stream.pipeTo(
     new WritableStream({
       write(data) {
-        // Log data
-        //console.log(isError ? "Error data:" : "Data:", data);
-        
-        // Write to terminal with red color for errors
+
         if (isError) {
           terminal.write(`\x1b[31m${data}\x1b[0m`);
         } else {
@@ -32,9 +29,6 @@ const handleProcessStream = (stream, terminal, callback = null, isError = false)
   });
 };
 
-/**
- * Creates a new Docusaurus project
- */
 export const createDocusaurusProject = async (
   instance,
   terminal,
@@ -75,9 +69,6 @@ export const createDocusaurusProject = async (
   }
 };
 
-/**
- * Changes to the project directory
- */
 export const changeToProjectDirectory = async (
   instance,
   terminal,
@@ -100,9 +91,7 @@ export const changeToProjectDirectory = async (
   }
 };
 
-/**
- * Installs project dependencies
- */
+
 export const installDependencies = async (
   instance,
   terminal,
@@ -118,7 +107,6 @@ export const installDependencies = async (
       cwd: "/my-docs2",
     });
 
-    // Update progress when dependencies are being added
     const progressCallback = (data) => {
       if (data.includes("added")) {
         setSetupProgress(75);
@@ -145,9 +133,6 @@ export const installDependencies = async (
   }
 };
 
-/**
- * Starts the development server
- */
 export const startDevServer = async (
   instance,
   terminal,
@@ -167,9 +152,7 @@ export const startDevServer = async (
       cwd: "/my-docs2",
     });
 
-    // Process server output to detect when it's ready
     const serverOutputCallback = (data) => {
-      // Check if server started from output
       if (data.includes("Docusaurus website is running at") && !serverStarted.current) {
         const match = data.match(/http:\/\/localhost:(\d+)/);
         if (match && match[0]) {
@@ -201,9 +184,7 @@ export const startDevServer = async (
   }
 };
 
-/**
- * Sets up server-ready event listener
- */
+
 export const setupServerReadyListener = (
   instance,
   terminal,
@@ -222,9 +203,6 @@ export const setupServerReadyListener = (
   });
 };
 
-/**
- * Main function to setup a Docusaurus project
- */
 export const setupDocusaurusProject = async (
   instance,
   terminal,
@@ -236,7 +214,6 @@ export const setupDocusaurusProject = async (
   setIsLoading
 ) => {
   try {
-    // Step 1: Create Docusaurus project
     const projectCreated = await createDocusaurusProject(
       instance, 
       terminal, 
@@ -247,7 +224,6 @@ export const setupDocusaurusProject = async (
       throw new Error("Failed to create Docusaurus project");
     }
 
-    // Step 2: Change to project directory
     const dirChanged = await changeToProjectDirectory(
       instance, 
       terminal, 
@@ -258,7 +234,6 @@ export const setupDocusaurusProject = async (
       throw new Error("Failed to change to project directory");
     }
 
-    // Step 3: Install dependencies
     const dependenciesInstalled = await installDependencies(
       instance, 
       terminal, 
@@ -269,7 +244,6 @@ export const setupDocusaurusProject = async (
       throw new Error("Failed to install dependencies");
     }
 
-    // Setup server ready listener BEFORE starting the server
     setupServerReadyListener(
       instance, 
       terminal, 
@@ -279,7 +253,6 @@ export const setupDocusaurusProject = async (
       setSetupProgress
     );
 
-    // Step 4: Start development server
     const serverStartedSuccessfully = await startDevServer(
       instance,
       terminal,
@@ -290,6 +263,7 @@ export const setupDocusaurusProject = async (
       refreshFileTree,
       setIsLoading
     );
+    
     if (!serverStartedSuccessfully) {
       throw new Error("Failed to start development server");
     }
