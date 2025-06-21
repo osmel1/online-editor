@@ -7,7 +7,6 @@ export default function useFileSystem({ webcontainerInstance }) {
   const [fileSystem, setFileSystem] = useState({});
   const [openFolders, setOpenFolders] = useState(new Set());
 
-  // Read directory recursively
   const readDirectory = useCallback(
     async (path = "/my-docs2/docs/") => {
       if (!webcontainerInstance) return {};
@@ -60,7 +59,6 @@ export default function useFileSystem({ webcontainerInstance }) {
     [webcontainerInstance]
   );
 
-  // Refresh file tree
   const refreshFileTree = useCallback(async () => {
     if (!webcontainerInstance) return;
 
@@ -76,7 +74,6 @@ export default function useFileSystem({ webcontainerInstance }) {
     }
   }, [webcontainerInstance, readDirectory]);
 
-  // Set up file watching
   useEffect(() => {
     if (!webcontainerInstance) return;
 
@@ -97,7 +94,6 @@ export default function useFileSystem({ webcontainerInstance }) {
     };
   }, [webcontainerInstance, refreshFileTree]);
 
-  // Toggle folder open/closed
   const toggleFolder = useCallback((path) => {
     setOpenFolders((prevOpenFolders) => {
       const newOpenFolders = new Set(prevOpenFolders);
@@ -110,7 +106,6 @@ export default function useFileSystem({ webcontainerInstance }) {
     });
   }, []);
 
-  // Create a new file
   const createFile = useCallback(
     async (path = "/my-docs2/docs/") => {
       if (!webcontainerInstance) return;
@@ -137,7 +132,6 @@ export default function useFileSystem({ webcontainerInstance }) {
     [webcontainerInstance, refreshFileTree]
   );
 
-  // Create a new folder
   const createFolder = useCallback(
     async (path = "/my-docs2/docs/") => {
       if (!webcontainerInstance) return;
