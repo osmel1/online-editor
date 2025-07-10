@@ -13,6 +13,8 @@ import useTerminal from "./hooks/useTerminal";
 import useFileSystem from "./hooks/useFileSystem";
 import useEditor from "./hooks/useEditor";
 
+//TODO: Compatibiliy beetween docusaurus and MdxEditor
+
 function App() {
   // Loading state
   const [isLoading, setIsLoading] = useState(true);
@@ -64,6 +66,7 @@ function App() {
 
         {renderEditorBasedOnFileType()}
         <Preview url={iframeUrl} />
+        
       </div>
     </div>
   );

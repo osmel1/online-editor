@@ -70,28 +70,28 @@ export default function useWebContainer({
         const db = await getDatabase();
         const existingFiles = await db.files.find().exec();
 
-        if (existingFiles.length === 0) {
-          console.log("🚀 First-time setup: Initializing project...");
-          await setupDocusaurusProject(
-            instance,
-            terminal,
-            setLoadingStage,
-            setSetupProgress,
-            setIframeUrl,
-            serverStarted,
-            refreshFileTree,
-            setIsLoading
-          )
-            .then(async () => {
+        console.log("🚀 First-time setup: Initializing project...");
+        await setupDocusaurusProject(
+          instance,
+          terminal,
+          setLoadingStage,
+          setSetupProgress,
+          setIframeUrl,
+          serverStarted,
+          refreshFileTree,
+          setIsLoading
+        )
+          .then(async () => {
+            if (existingFiles.length === 0) {
               await saveToRxDB(instance.fs, db);
-            })
-            .catch((error) => {
-              console.error("WebContainer setup failed 2 :", error);
-            });
-        } else {
-          console.log("🔄 Restoring project from RxDB...");
-          await restoreFromRxDB(instance.fs, db);
-        }
+            } else {
+              console.log("🔄 Restoring project from RxDB...");
+              await restoreFromRxDB(instance.fs, db);
+            }
+          })
+          .catch((error) => {
+            console.error("WebContainer setup failed 2 :", error);
+          });
       })
       .catch((error) => {
         console.error("WebContainer setup failed:", error);
