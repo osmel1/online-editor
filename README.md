@@ -1,7 +1,6 @@
 #  Online Markdown & MDX Editor with Live Docusaurus Preview  
 ## 🌟 Introduction  
 This project is an online editor that allows users to write and organize their documentation using **MDX** and **Markdown**. It offers a real-time preview in a **Docusaurus** environment.
-> **⚠️ Note:** Management of local file storage and usage with **RxDB** is still under development.
 ---
 ## 🚀 Main Features  
 ✔️ **MDX** Editor with **Docusaurus** support  
