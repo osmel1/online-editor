@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-
+import { saveIntoFile } from "../db";
 /**
  * Hook to manage file system operations
  */
@@ -7,7 +7,6 @@ export default function useFileSystem({ webcontainerInstance }) {
   const [fileSystem, setFileSystem] = useState({});
   const [openFolders, setOpenFolders] = useState(new Set());
 
-  // Read directory recursively
   const readDirectory = useCallback(
     async (path = "/my-docs2/docs/") => {
       if (!webcontainerInstance) return {};
@@ -48,7 +47,7 @@ export default function useFileSystem({ webcontainerInstance }) {
             }
           }
         }
-        console.log("Files Data")
+        console.log("Files Data");
         console.log(result);
 
         return result;
@@ -60,14 +59,13 @@ export default function useFileSystem({ webcontainerInstance }) {
     [webcontainerInstance]
   );
 
-  // Refresh file tree
   const refreshFileTree = useCallback(async () => {
     if (!webcontainerInstance) return;
 
     try {
       // Check if the folder exists
       await webcontainerInstance.fs.readdir("/my-docs2/docs/");
-  
+
       // If the folder exists, read its contents
       const newFileSystem = await readDirectory("/my-docs2/docs/");
       setFileSystem(newFileSystem);
@@ -76,7 +74,6 @@ export default function useFileSystem({ webcontainerInstance }) {
     }
   }, [webcontainerInstance, readDirectory]);
 
-  // Set up file watching
   useEffect(() => {
     if (!webcontainerInstance) return;
 
@@ -97,7 +94,6 @@ export default function useFileSystem({ webcontainerInstance }) {
     };
   }, [webcontainerInstance, refreshFileTree]);
 
-  // Toggle folder open/closed
   const toggleFolder = useCallback((path) => {
     setOpenFolders((prevOpenFolders) => {
       const newOpenFolders = new Set(prevOpenFolders);
@@ -110,7 +106,6 @@ export default function useFileSystem({ webcontainerInstance }) {
     });
   }, []);
 
-  // Create a new file
   const createFile = useCallback(
     async (path = "/my-docs2/docs/") => {
       if (!webcontainerInstance) return;
@@ -121,10 +116,10 @@ export default function useFileSystem({ webcontainerInstance }) {
 
         const basePath = "/my-docs2/docs/";
         const filePath = `${basePath}${fileName}`;
-        
+
         // Create the file with empty content
         await webcontainerInstance.fs.writeFile(filePath, "");
-
+        saveIntoFile(filePath, "");
         // Refresh the file tree to show the new file
         await refreshFileTree();
 
@@ -137,7 +132,6 @@ export default function useFileSystem({ webcontainerInstance }) {
     [webcontainerInstance, refreshFileTree]
   );
 
-  // Create a new folder
   const createFolder = useCallback(
     async (path = "/my-docs2/docs/") => {
       if (!webcontainerInstance) return;
@@ -145,10 +139,10 @@ export default function useFileSystem({ webcontainerInstance }) {
       try {
         const folderName = prompt("Enter folder name:");
         if (!folderName) return;
-        
+
         const basePath = "/my-docs2/docs/";
         const folderPath = `${basePath}${folderName}`;
-        
+
         // Create the directory
         await webcontainerInstance.fs.mkdir(folderPath, { recursive: true });
 
@@ -177,6 +171,6 @@ export default function useFileSystem({ webcontainerInstance }) {
     toggleFolder,
     createFile,
     createFolder,
-    refreshFileTree
+    refreshFileTree,
   };
 }
